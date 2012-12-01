@@ -1,0 +1,211 @@
+<!--
+    Ant build file for the NDCSample project.
+
+
+    The build file assumes the following directory structure:
+
+    NDCSample
+    |___build.xml
+    |  
+    |___data
+    |   |___[InfiniteGraph database files]
+    |          
+	|___config 
+    |   |___NDCSample.properties [properties file]
+	|
+    |___src     
+    |   |___[all the .java files]
+    |          
+    |___bin   
+    |   |___[the compiled output]
+                  
+-->
+
+
+<project name="NDCSample" default="jar" basedir=".">
+
+	<property name="patientmmi" value=""/>
+	<property name="drugname" value=""/>
+
+	<property environment="env"/>
+
+	<property name="src.dir" value="src" />
+	<property name="build.dir" value="bin" />
+	<property name="jar.dir" value="." />
+	<property name="data.dir" value="data" />
+	<property name="plugin.dir" value ="data/plugins/" />
+	<property name="plugin.navigators.dir" value ="data/plugins/navigators" />
+	<property name="plugin.formatters.dir" value ="data/plugins/formatters" />
+	<property name="plugin.lib.dir" value ="data/plugins/lib" />
+	<property name="navigators.plugin.name" value="NDCNavigatorPlugin" />
+	<property name="formatters.plugin.name" value="NDCFormatterPlugin" />
+	<property name="navigators.plugin.jar" value="/${navigators.plugin.name}.jar" />
+	<property name="formatters.plugin.jar" value="/${formatters.plugin.name}.jar" />
+	<property name="types.plugin.jar" value="/NDCTypesPlugin.jar" />
+	<property name="iglib.dir" value="${env.IG_HOME}/lib" />
+	<property name="ig.jar" value="InfiniteGraph.jar" />
+	<property name="slf4j.jar" value="slf4j-simple-1.6.1.jar" />
+
+	<property name="StagePatientDatabase" value="com.infinitegraph.samples.ndc.StagePatientDatabase" />
+	<property name="ImportPatient" value="com.infinitegraph.samples.ndc.ImportPatient" />
+	<property name="ImportProduct" value="com.infinitegraph.samples.ndc.ImportProduct" />
+	<property name="PrintDrugs" value="com.infinitegraph.samples.ndc.PrintDrugs" />
+	<property name="GeneratePatientAllergies" value="com.infinitegraph.samples.ndc.GeneratePatientAllergies" />
+	<property name="MedicatePatient" value="com.infinitegraph.samples.ndc.MedicatePatient" />
+	<property name="Navigate" value="com.infinitegraph.samples.ndc.Navigate" />
+
+	<condition property="ig.available" >
+		<and>
+			<available file="${iglib.dir}/${ig.jar}" />
+			<available file="${iglib.dir}/${slf4j.jar}" />
+		</and>
+	</condition>
+
+	<path id="classpath">
+		<fileset dir="${iglib.dir}">
+			<include name="${ig.jar}" />
+		</fileset>
+		<fileset dir="${iglib.dir}">
+			<include name="${slf4j.jar}" />
+		</fileset>
+	</path>
+	
+	<!-- ============================================================== -->
+
+	<!-- Initialising, cleaning, etc. -->
+
+	<target name="init" description="Initializes everything, creates directories, etc.">
+		<mkdir dir="${build.dir}" />
+		<mkdir dir="${data.dir}" />
+		<mkdir dir="${plugin.dir}" />
+		<mkdir dir="${plugin.navigators.dir}" />
+		<mkdir dir="${plugin.formatters.dir}" />
+		<mkdir dir="${plugin.lib.dir}" />
+	</target>
+
+	<!-- Removes the build directory -->
+	<target name="clean" description="Deletes all generated files.">
+		<delete dir="${build.dir}" />
+		<delete file="${jar.dir}/${ant.project.name}.jar" />
+		<delete>
+			<fileset dir="${plugin.navigators.dir}" >
+				<filename name="${navigators.plugin.name}*"/>
+			</fileset>
+		</delete>
+		<delete>
+			<fileset dir="${plugin.formatters.dir}" >
+				<filename name="${formatters.plugin.name}*"/>
+			</fileset>			
+		</delete>
+		<delete file="${plugin.lib.dir}/${types.plugin.jar}" />
+	</target>
+
+	<!-- Removed the database -->
+	<target name="cleandb" description="Deletes all database files">
+		<exec executable="objy" dir="./data">
+			<arg line="DeleteFd -bootFile NDCSample.boot"/>
+		</exec>
+	</target>
+
+	<target name="cleanall" depends="cleandb,clean"/>
+	
+	<!-- ============================================================== -->
+
+	<!-- Compilation targets -->
+
+	<target name="compile" depends="init" description="Compiles all Java src files" if="ig.available">
+		<javac srcdir="${src.dir}" destdir="${build.dir}" classpathref="classpath" includeantruntime="false" />
+	</target>
+
+	<!-- jar targets -->
+	<target name="jar" depends="compile" description="Builds jar from compiled classes.">
+		<jar destfile="${jar.dir}/${ant.project.name}.jar" basedir="${build.dir}">
+			<manifest>
+				<attribute name="Main-Class" value="${main-class}" />
+			</manifest>
+		</jar>
+<!--
+-->
+		<jar destfile="${plugin.lib.dir}/${types.plugin.jar}" basedir="${build.dir}" includes = "com/infinitegraph/samples/ndc/types/*"  />
+		<jar destfile="${plugin.navigators.dir}/${navigators.plugin.jar}" basedir="${build.dir}"
+			includes="com/infinitegraph/samples/ndc/plugins/DrugNameResultQualifier.class,
+					com/infinitegraph/samples/ndc/plugins/EdgeTypePathQualifier.class,
+					com/infinitegraph/samples/ndc/plugins/SearchOrderGuide.class" />
+		<jar destfile="${plugin.formatters.dir}/${formatters.plugin.jar}" basedir="${build.dir}"
+			includes="com/infinitegraph/samples/ndc/plugins/PrintPathFormatResultHandler.class"  />
+
+	</target>
+
+
+	<!-- Run target -->
+	<target name="runStagePatientDatabase" depends="jar" description="run StagePatientDatabase">
+		<java fork="true" classname="${StagePatientDatabase}">
+			<classpath>
+				<path refid="classpath" />
+				<path location="${jar.dir}/${ant.project.name}.jar" />
+			</classpath>
+		</java>
+	</target>
+
+	<target name="runImportPatient" depends="jar" description="run ImportPatient">
+		<java fork="true" classname="${ImportPatient}">
+			<classpath>
+				<path refid="classpath" />
+				<path location="${jar.dir}/${ant.project.name}.jar" />
+			</classpath>
+		</java>
+	</target>
+
+	<target name="runImportProduct" depends="jar" description="run ImportProduct">
+		<java fork="true" classname="${ImportProduct}">
+			<classpath>
+				<path refid="classpath" />
+				<path location="${jar.dir}/${ant.project.name}.jar" />
+			</classpath>
+		</java>
+	</target>
+
+	<target name="runPrintDrugs" depends="jar" description="run PrintDrugs">
+		<java fork="true" classname="${PrintDrugs}">
+			<classpath>
+				<path refid="classpath" />
+				<path location="${jar.dir}/${ant.project.name}.jar" />
+			</classpath>
+		</java>
+	</target>
+
+
+	<target name="runGeneratePatientAllergies" depends="jar" description="run GeneratePatientAllergies">
+		<java fork="true" classname="${GeneratePatientAllergies}">
+			<classpath>
+				<path refid="classpath" />
+				<path location="${jar.dir}/${ant.project.name}.jar" />
+			</classpath>
+			<arg value="25" />
+			<jvmarg value="-Xms512m" />
+			<jvmarg value="-Xmx512m" />
+		</java>
+	</target>
+
+	<target name="runMedicatePatient" depends="jar" description="run MedicatePatient">
+		<java fork="true" classname="${MedicatePatient}">
+			<classpath>
+				<path refid="classpath" />
+				<path location="${jar.dir}/${ant.project.name}.jar" />
+			</classpath>
+			<arg value="${patientmmi}" />
+			<arg value="${drugname}" />
+		</java>
+	</target>
+
+	<target name="runNavigate" depends="jar" description="run Navigate">
+		<java fork="true" classname="${Navigate}">
+			<classpath>
+				<path refid="classpath" />
+				<path location="${jar.dir}/${ant.project.name}.jar" />
+			</classpath>
+			<arg line="${patientmmi} ${drugname}"/>
+		</java>
+	</target>
+
+</project>
